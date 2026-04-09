@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
+import EventCarousel from '../components/EventCarousel';
 import EventCard from '../components/EventCard';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
@@ -58,14 +59,27 @@ const Home = () => {
         date: '',
         location: '',
         description: '',
-        image: ''
+        image: '',
+        group: 'acm'
     });
+
+    const todayString = new Date().toISOString().split('T')[0];
 
     React.useEffect(() => {
         fetch(`${API_URL}/events`)
             .then(response => response.json())
-            .then(data => setEvents(data))
-            .catch(error => console.error('Error fetching events:', error));
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setEvents(data);
+                } else {
+                    console.error('Expected array of events but received:', data);
+                    setEvents([]);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching events:', error);
+                setEvents([]);
+            });
     }, []);
 
     const handleInputChange = (e) => {
@@ -98,14 +112,16 @@ const Home = () => {
             .then(data => {
                 setEvents(prev => [data, ...prev]);
                 setIsModalOpen(false);
-                setNewEvent({ title: '', date: '', location: '', description: '', image: '' });
+                setNewEvent({ title: '', date: '', location: '', description: '', image: '', group: 'acm' });
             })
             .catch(error => console.error('Error creating event:', error));
     };
 
     const handleAddClick = () => {
-        if (user) {
+        if (user && user.isAdmin) {
             setIsModalOpen(true);
+        } else if (user) {
+            alert('Only administrators can add new events.');
         } else {
             navigate('/login');
         }
@@ -114,30 +130,36 @@ const Home = () => {
     return (
         <>
             <Navbar onJoinClick={handleAddClick} />
-            <Hero />
+            <Hero featuredEvent={events.length > 0 ? events[0] : null} />
+            
+            <EventCarousel events={events} />
 
             <section id="events" className="container section">
                 <div className="flex justify-between items-center mb-10">
                     <h2 className="hero-title text-center" style={{ fontSize: '2.5rem', marginBottom: 0 }}>
                         Upcoming <span className="gradient-text">Events</span>
                     </h2>
-                    <button
-                        className="btn btn-primary"
-                        onClick={handleAddClick}
-                    >
-                        + Add Event
-                    </button>
+                    {user?.isAdmin && (
+                        <button
+                            className="btn btn-primary"
+                            onClick={handleAddClick}
+                        >
+                            + Add Event
+                        </button>
+                    )}
                 </div>
 
                 <div className="events-grid">
                     {events.map((event) => (
                         <EventCard
                             key={event.id}
+                            id={event.id}
                             title={event.title}
                             date={event.date}
                             location={event.location}
                             description={event.description}
                             image={event.image || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=600"}
+                            group={event.group}
                             onDelete={() => handleDelete(event.id)}
                         />
                     ))}
@@ -181,12 +203,13 @@ const Home = () => {
                                 <label>Date</label>
                                 <input
                                     required
-                                    type="text"
+                                    type="date"
                                     name="date"
                                     className="form-input"
                                     value={newEvent.date}
                                     onChange={handleInputChange}
-                                    placeholder="e.g. July 15, 2026"
+                                    min={todayString}
+                                    style={{ colorScheme: 'dark', cursor: 'pointer' }}
                                 />
                             </div>
 
@@ -213,6 +236,23 @@ const Home = () => {
                                     onChange={handleInputChange}
                                     placeholder="https://example.com/image.jpg"
                                 />
+                            </div>
+
+                            <div className="form-group">
+                                <label>Group/Club</label>
+                                <select
+                                    required
+                                    name="group"
+                                    className="form-input"
+                                    value={newEvent.group}
+                                    onChange={handleInputChange}
+                                >
+                                    <option value="acm">ACM</option>
+                                    <option value="ieee">IEEE</option>
+                                    <option value="vibinz">Vibinz</option>
+                                    <option value="cuarcs">CUArcs</option>
+                                    <option value="euphony">Euphony</option>
+                                </select>
                             </div>
 
                             <div className="form-group">

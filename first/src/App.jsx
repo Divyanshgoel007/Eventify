@@ -5,6 +5,9 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Collaboration from './pages/Collaboration';
+import ClubEvents from './pages/ClubEvents';
+import EventCalendarPage from './pages/EventCalendarPage';
+import AdminPanel from './pages/AdminPanel';
 import './App.css';
 
 function App() {
@@ -14,8 +17,11 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/collaboration" element={<Collaboration />} />
+          <Route path="/calendar" element={<EventCalendarPage />} />
+          <Route path="/clubs/:clubId" element={<ClubEvents />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/admin" element={<AdminPanel />} />
         </Routes>
       </AuthProvider>
     </Router>

@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 import { User } from './models/User.js';
 import { Event } from './models/Event.js';
 import { Request as CollabRequest } from './models/Request.js';
+import { Registration } from './models/Registration.js';
+import { Team } from './models/Team.js';
 
 dotenv.config();
 
@@ -49,7 +51,7 @@ app.post('/signup', async (req, res) => {
         res.status(201).json({
             message: 'User registered successfully',
             token,
-            user: { id: newUser._id, name: newUser.name, email: newUser.email }
+            user: { id: newUser._id, name: newUser.name, email: newUser.email, isAdmin: newUser.isAdmin }
         });
     } catch (err) {
         console.error(err);
@@ -59,7 +61,7 @@ app.post('/signup', async (req, res) => {
 
 // Sign In
 app.post('/signin', async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, loginRole, adminPasskey } = req.body;
 
     if (!email || !password) {
         return res.status(400).json({ error: 'All fields are required' });
@@ -76,12 +78,23 @@ app.post('/signin', async (req, res) => {
             return res.status(400).json({ error: 'Invalid credentials' });
         }
 
+        if (loginRole === 'admin') {
+            const secretKey = process.env.ADMIN_PASSKEY || 'masterAdmin123';
+            if (adminPasskey !== secretKey) {
+                return res.status(401).json({ error: 'Invalid Secret Passkey. Admin Access Denied.' });
+            }
+            user.isAdmin = true;
+        } else {
+            user.isAdmin = false;
+        }
+        await user.save();
+
         const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
 
         res.json({
             message: 'Login successful',
             token,
-            user: { id: user._id, name: user.name, email: user.email }
+            user: { id: user._id, name: user.name, email: user.email, isAdmin: user.isAdmin }
         });
     } catch (err) {
         console.error(err);
@@ -210,6 +223,27 @@ app.put('/requests/:id', async (req, res) => {
             return res.status(404).json({ error: 'Request not found' });
         }
 
+        // Automatic Team Formation Logic
+        if (status === 'accepted') {
+            const senderId = updatedRequest.senderId;
+            const acceptedRequests = await CollabRequest.find({ senderId, status: 'accepted' });
+            
+            if (acceptedRequests.length === 3) {
+                const existingTeam = await Team.findOne({ leaderId: senderId });
+                if (!existingTeam) {
+                    const memberIds = acceptedRequests.map(r => r.receiverId);
+                    if (!memberIds.includes(senderId)) memberIds.push(senderId); // Include leader
+                    
+                    const newTeam = new Team({
+                        leaderId: senderId,
+                        members: memberIds,
+                        teamName: 'My Hackathon Team'
+                    });
+                    await newTeam.save();
+                }
+            }
+        }
+
         res.json({
             id: updatedRequest._id,
             status: updatedRequest.status
@@ -217,6 +251,93 @@ app.put('/requests/:id', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to update request' });
+    }
+});
+
+// --- TEAM ROUTES ---
+app.get('/teams/:userId', async (req, res) => {
+    try {
+        const team = await Team.findOne({ members: req.params.userId }).populate('members', 'name email').populate('leaderId', 'name email');
+        if (!team) return res.json(null);
+        res.json({
+            id: team._id,
+            leaderId: team.leaderId._id,
+            leaderName: team.leaderId.name,
+            teamName: team.teamName,
+            members: team.members.map(m => ({ id: m._id, name: m.name, email: m.email }))
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch team' });
+    }
+});
+
+app.put('/teams/:teamId', async (req, res) => {
+    try {
+        const { teamId } = req.params;
+        const { teamName, userId } = req.body;
+        
+        const team = await Team.findById(teamId);
+        if (!team) return res.status(404).json({ error: 'Team not found' });
+        
+        if (team.leaderId.toString() !== userId) {
+            return res.status(403).json({ error: 'Only the team leader can edit the team name' });
+        }
+        
+        team.teamName = teamName;
+        await team.save();
+        res.json({
+            id: team._id,
+            teamName: team.teamName
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update team name' });
+    }
+});
+
+// Remove Member from Team
+app.post('/teams/:teamId/remove-member', async (req, res) => {
+    try {
+        const { teamId } = req.params;
+        const { memberId, requesterId } = req.body;
+        
+        const team = await Team.findById(teamId);
+        if (!team) return res.status(404).json({ error: 'Team not found' });
+        
+        // Only leader can remove others. Member can remove themselves.
+        if (requesterId !== team.leaderId.toString() && requesterId !== memberId) {
+            return res.status(403).json({ error: 'Unauthorized to remove this member' });
+        }
+        
+        // Remove member
+        team.members = team.members.filter(m => m.toString() !== memberId);
+        await team.save();
+        res.json({ message: 'Member removed successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to remove member' });
+    }
+});
+
+// Delete Team
+app.delete('/teams/:teamId', async (req, res) => {
+    try {
+        const { teamId } = req.params;
+        const { requesterId } = req.query; // Sent via URL query
+        
+        const team = await Team.findById(teamId);
+        if (!team) return res.status(404).json({ error: 'Team not found' });
+        
+        if (team.leaderId.toString() !== requesterId) {
+            return res.status(403).json({ error: 'Only leader can delete team' });
+        }
+        
+        await Team.findByIdAndDelete(teamId);
+        res.json({ message: 'Team deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to delete team' });
     }
 });
 
@@ -232,7 +353,8 @@ app.get('/events', async (req, res) => {
             date: e.date,
             location: e.location,
             description: e.description,
-            image: e.image
+            image: e.image,
+            group: e.group
         }));
         res.json(formattedEvents);
     } catch (err) {
@@ -243,13 +365,13 @@ app.get('/events', async (req, res) => {
 
 // Add Event
 app.post('/events', async (req, res) => {
-    const { title, date, location, description, image } = req.body;
+    const { title, date, location, description, image, group } = req.body;
     try {
-        const newEvent = new Event({ title, date, location, description, image });
+        const newEvent = new Event({ title, date, location, description, image, group });
         await newEvent.save();
         res.status(201).json({
             id: newEvent._id,
-            title, date, location, description, image
+            title, date, location, description, image, group
         });
     } catch (err) {
         console.error(err);
@@ -266,6 +388,57 @@ app.delete('/events/:id', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to delete event' });
+    }
+});
+
+// Event Registration
+app.post('/events/:id/register', async (req, res) => {
+    const { id: eventId } = req.params;
+    const { name, universityId, batch, branch, userId } = req.body;
+
+    if (!name || !universityId || !batch || !branch) {
+        return res.status(400).json({ error: 'All fields (name, universityId, batch, branch) are required' });
+    }
+
+    try {
+        // Check for duplicate
+        const query = userId ? { eventId, userId } : { eventId, universityId };
+        const existingReg = await Registration.findOne(query);
+        
+        if (existingReg) {
+            return res.status(400).json({ error: 'Already registered for this event.' });
+        }
+
+        const newReg = new Registration({ eventId, userId, name, universityId, batch, branch });
+        await newReg.save();
+        res.status(201).json({ message: 'Registered successfully!' });
+    } catch (err) {
+        console.error('Registration error:', err);
+        res.status(500).json({ error: 'Failed to process registration' });
+    }
+});
+
+// --- ADMIN ROUTES ---
+app.get('/admin/registrations', async (req, res) => {
+    try {
+        const registrations = await Registration.find()
+            .populate('eventId', 'title date')
+            .sort({ registeredAt: -1 });
+        res.json(registrations);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error fetching registrations' });
+    }
+});
+
+// Check Registration Status
+app.get('/events/:eventId/check-registration/:userId', async (req, res) => {
+    try {
+        const { eventId, userId } = req.params;
+        const existing = await Registration.findOne({ eventId, userId });
+        res.json({ isRegistered: !!existing });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed' });
     }
 });
 
