@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { API_URL } from "../api";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 
 const EventCard = ({ id, title, date, location, description, image, group, onDelete, isFeatured }) => {
   const { user } = useAuth();
@@ -8,6 +9,34 @@ const EventCard = ({ id, title, date, location, description, image, group, onDel
   const [formData, setFormData] = useState({ name: user?.name || '', universityId: '', batch: '', branch: '' });
   const [loading, setLoading] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+
+  // 3D Motion Values
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const mouseXSpring = useSpring(x, { stiffness: 300, damping: 20 });
+  const mouseYSpring = useSpring(y, { stiffness: 300, damping: 20 });
+
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["12deg", "-12deg"]);
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-12deg", "12deg"]);
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const xPct = mouseX / width - 0.5;
+    const yPct = mouseY / height - 0.5;
+    x.set(xPct);
+    y.set(yPct);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
 
   useEffect(() => {
     if (user?.id && id) {
@@ -55,8 +84,18 @@ const EventCard = ({ id, title, date, location, description, image, group, onDel
 
   return (
     <>
-      <div className={`event-card ${isFeatured ? 'featured' : ''}`}>
-        {!isFeatured && (
+      <motion.div 
+        className={`event-card ${isFeatured ? 'featured' : ''}`}
+        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        whileHover={{ scale: 1.02 }}
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+      >
+        {!isFeatured && user?.isAdmin && (
           <button
             className="delete-btn-card"
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -67,11 +106,12 @@ const EventCard = ({ id, title, date, location, description, image, group, onDel
         )}
         
         {/* Top: Event Image */}
-        <div className="event-card-header">
+        <div className="event-card-header" style={{ transform: "translateZ(30px)" }}>
           {(!isFeatured || image) && (
             <div
               className="event-image"
-              style={{ backgroundImage: `url(${image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=600'})` }}
+              style={{ backgroundImage: `url(${image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=600'})`, cursor: 'pointer', zIndex: 10, position: 'relative' }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowImageModal(true); }}
             >
               <div className="event-badge">
                 {group ? group.toUpperCase() : 'EVENT'}
@@ -81,7 +121,7 @@ const EventCard = ({ id, title, date, location, description, image, group, onDel
         </div>
 
         {/* Middle: Content */}
-        <div className="event-card-body">
+        <div className="event-card-body" style={{ transform: "translateZ(40px)" }}>
           <h3 className="event-title">{title}</h3>
           
           <div className="event-meta">
@@ -101,7 +141,7 @@ const EventCard = ({ id, title, date, location, description, image, group, onDel
         </div>
         
         {/* Bottom: Organizer & CTA */}
-        <div className="event-card-footer">
+        <div className="event-card-footer" style={{ transform: "translateZ(50px)" }}>
           <div className="organizer-info">
             <div className="organizer-avatar">
                {group ? group.charAt(0).toUpperCase() : 'O'}
@@ -121,11 +161,17 @@ const EventCard = ({ id, title, date, location, description, image, group, onDel
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <motion.div 
+            className="modal-content" 
+            onClick={e => e.stopPropagation()}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+          >
             <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
             <h2 className="text-2xl font-bold mb-6">Register for <span className="gradient-text">{title}</span></h2>
             <form onSubmit={handleSubmit}>
@@ -149,7 +195,35 @@ const EventCard = ({ id, title, date, location, description, image, group, onDel
                 {loading ? "Registering..." : "Submit Registration"}
               </button>
             </form>
-          </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showImageModal && (
+        <div className="modal-overlay" onClick={() => setShowImageModal(false)} style={{ zIndex: 1000 }}>
+          <motion.div 
+            className="modal-content" 
+            style={{ padding: 0, background: 'transparent', boxShadow: 'none', maxWidth: '90vw', maxHeight: '90vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+            onClick={e => e.stopPropagation()}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+          >
+            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', justifyContent: 'center' }}>
+              <button 
+                className="close-btn" 
+                style={{ top: '-40px', right: '0', color: 'white', fontSize: '40px', background: 'transparent' }} 
+                onClick={() => setShowImageModal(false)}
+              >
+                ×
+              </button>
+              <img 
+                src={image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=600'} 
+                alt={title} 
+                style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: '10px' }}
+              />
+            </div>
+          </motion.div>
         </div>
       )}
     </>

@@ -55,6 +55,14 @@
 
 html {
   scroll-behavior: smooth;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+img, video {
+  max-width: 100%;
+  height: auto;
 }
 
 body {
@@ -65,6 +73,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
   background-image: 
     radial-gradient(circle at 15% 50%, rgba(79, 70, 229, 0.08) 0%, transparent 50%),
     radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.08) 0%, transparent 50%);
@@ -110,4 +120,200 @@ ul {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
+}
+
+@keyframes left {
+  100% {
+    margin-left: -54000px;
+  }
+}
+
+@keyframes back {
+  100% {
+    margin-left: -54870px;
+  }
+}
+
+@keyframes right {
+  100% {
+    margin-left: -55740px;
+  }
+}
+
+@keyframes filter-animation {
+  0%, 100% {
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    filter: hue-rotate(100deg);
+  }
+}
+
+@keyframes zoom-in {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(2.5);
+  }
+}
+
+@keyframes blur {
+  0% {
+    filter: blur(0px);
+  }
+  100% {
+    filter: blur(3px);
+  }
+}
+
+@keyframes brightness {
+  0% {
+    filter: brightness(1) contrast(1);
+  }
+  100% {
+    filter: brightness(0.8) contrast(1.3);
+  }
+}
+
+@keyframes text-glow {
+  0%, 100% {
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  }
+}
+
+/* Custom CSS for 3D Animation Hero Section */
+.hero-section {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  min-height: 600px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background-color: var(--color-background);
+}
+
+.hero-section .container {
+  position: relative;
+  perspective: 1500px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-section .content {
+  position: relative;
+  transform-origin: center center;
+  transition: transform 0.1s ease-out;
+}
+
+.hero-section .container-full {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.hero-section .animated.hue {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.2), rgba(236, 72, 153, 0.2));
+  animation: filter-animation 10s infinite alternate;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hero-section .backgroundImage,
+.hero-section .boyImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-section .backgroundImage {
+  z-index: 0;
+}
+
+.hero-section .boyImage {
+  z-index: 2;
+  mix-blend-mode: screen;
+  opacity: 0.8;
+}
+
+/* 3D Cube logic */
+.hero-section .cube {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  margin-top: -100px;
+  margin-left: -100px;
+  transform-style: preserve-3d;
+  animation: spin 20s infinite linear;
+  z-index: 3;
+}
+
+@keyframes spin {
+  from { transform: rotateY(0deg) rotateX(-5deg); }
+  to { transform: rotateY(360deg) rotateX(-5deg); }
+}
+
+.hero-section .face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(17, 24, 39, 0.7);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+  box-sizing: border-box;
+  color: #f9fafb;
+  font-size: 11px;
+  text-align: justify;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+}
+
+.hero-section .face.text span {
+  color: var(--color-accent);
+  font-weight: bold;
+}
+
+/* Position faces */
+.hero-section .face.front  { transform: translateZ(100px); }
+.hero-section .face.back   { transform: rotateY(180deg) translateZ(100px); }
+.hero-section .face.right  { transform: rotateY(90deg) translateZ(100px); }
+.hero-section .face.left   { transform: rotateY(-90deg) translateZ(100px); }
+.hero-section .face.top    { transform: rotateX(90deg) translateZ(100px); }
+.hero-section .face.bottom { transform: rotateX(-90deg) translateZ(100px); }
+
+.hero-section .container-reflect {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  transform: scaleY(-1);
+  opacity: 0.3;
+  pointer-events: none;
+  filter: blur(4px);
+  z-index: 0;
 }

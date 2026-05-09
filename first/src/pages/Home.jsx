@@ -4,50 +4,14 @@ import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import EventCarousel from '../components/EventCarousel';
 import EventCard from '../components/EventCard';
+import Categories from '../components/Categories';
+import HomeCalendar from '../components/HomeCalendar';
+import HackathonCollaboration from '../components/HackathonCollaboration';
+import StatsSection from '../components/StatsSection';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import '../App.css';
 import { API_URL } from '../api';
-
-const SuggestedCollaborators = ({ user, navigate }) => {
-    const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    React.useEffect(() => {
-        fetch(`${API_URL}/users`)
-            .then(res => res.json())
-            .then(data => {
-                setUsers(data.filter(u => u.id !== user.id).slice(0, 4));
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error(err);
-                setLoading(false);
-            });
-    }, [user]);
-
-    if (loading) return <p className="text-muted">Loading suggestions...</p>;
-    if (users.length === 0) return <p className="text-muted">No other users found yet.</p>;
-
-    return (
-        <>
-            {users.map(u => (
-                <div key={u.id} className="card p-4 flex flex-col items-center justify-center text-center" style={{ minWidth: '200px' }}>
-                    <div className="w-16 h-16 rounded-full bg-blue-600 mb-3 flex items-center justify-center font-bold text-xl text-white">
-                        {u.name.charAt(0)}
-                    </div>
-                    <h3 className="font-bold mb-1">{u.name}</h3>
-                    <button
-                        onClick={() => navigate('/collaboration')}
-                        className="btn btn-primary text-xs mt-2 w-full py-2"
-                    >
-                        Connect
-                    </button>
-                </div>
-            ))}
-        </>
-    );
-};
 
 const Home = () => {
     const { user } = useAuth();
@@ -131,17 +95,16 @@ const Home = () => {
         <>
             <Navbar onJoinClick={handleAddClick} />
             <Hero featuredEvent={events.length > 0 ? events[0] : null} />
-            
             <EventCarousel events={events} />
 
             <section id="events" className="container section">
                 <div className="flex justify-between items-center mb-10">
-                    <h2 className="hero-title text-center" style={{ fontSize: '2.5rem', marginBottom: 0 }}>
-                        Upcoming <span className="gradient-text">Events</span>
+                    <h2 className="text-3xl md:text-4xl font-bold font-heading mb-0">
+                        Featured <span className="gradient-text">Events</span>
                     </h2>
                     {user?.isAdmin && (
                         <button
-                            className="btn btn-primary"
+                            className="btn btn-primary add-event-trigger"
                             onClick={handleAddClick}
                         >
                             + Add Event
@@ -150,7 +113,7 @@ const Home = () => {
                 </div>
 
                 <div className="events-grid">
-                    {events.map((event) => (
+                    {events.slice(0, 6).map((event) => (
                         <EventCard
                             key={event.id}
                             id={event.id}
@@ -166,18 +129,13 @@ const Home = () => {
                 </div>
             </section>
 
-            {/* Suggested Collaborators Section - Only visible if logged in */}
-            {user && (
-                <section className="container section" style={{ paddingTop: '1rem' }}>
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold">Suggested <span className="gradient-text">Collaborators</span></h2>
-                        <button onClick={() => navigate('/collaboration')} className="btn btn-outline text-sm">View All</button>
-                    </div>
-                    <div className="flex gap-4 overflow-x-auto pb-4">
-                        <SuggestedCollaborators user={user} navigate={navigate} />
-                    </div>
-                </section>
-            )}
+            <Categories />
+            
+            <HomeCalendar events={events} />
+            
+            <HackathonCollaboration />
+            
+            <StatsSection />
 
             {isModalOpen && (
                 <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
@@ -279,8 +237,7 @@ const Home = () => {
     );
 };
 
-
-export default Home;
+export default Home;;
 
 
 

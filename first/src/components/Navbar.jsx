@@ -3,9 +3,10 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const NAV_ITEMS = [
-  { name: "Discover Events", path: "/" },
+  { name: "Home", path: "/" },
+  { name: "Events", path: "/#events" },
+  { name: "Hackathons", path: "/collaboration" },
   { name: "Calendar", path: "/calendar" },
-  { name: "Collaborations", path: "/collaboration" },
 ];
 
 const Navbar = ({ onJoinClick }) => {

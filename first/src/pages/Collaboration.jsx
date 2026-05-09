@@ -12,6 +12,7 @@ const Collaboration = () => {
     const [users, setUsers] = useState([]);
     const [requests, setRequests] = useState([]);
     const [team, setTeam] = useState(null);
+    const userId = user?.id || user?._id;
     const [editingTeamName, setEditingTeamName] = useState(false);
     const [newTeamName, setNewTeamName] = useState('');
     const [loading, setLoading] = useState(true);
@@ -23,7 +24,7 @@ const Collaboration = () => {
         }
 
         const fetchData = async () => {
-            console.log("Fetching collaboration data for user:", user.id);
+            console.log("Fetching collaboration data for user:", userId);
             try {
                 // Fetch all users
                 const usersResponse = await fetch(`${API_URL}/users`);
@@ -31,16 +32,16 @@ const Collaboration = () => {
                 console.log("All Users Fetched:", usersData);
 
                 // Fetch requests for current user
-                const requestsResponse = await fetch(`${API_URL}/requests/${user.id}`);
+                const requestsResponse = await fetch(`${API_URL}/requests/${userId}`);
                 const requestsData = await requestsResponse.json();
 
-                const teamResponse = await fetch(`${API_URL}/teams/${user.id}`);
+                const teamResponse = await fetch(`${API_URL}/teams/${userId}`);
                 const teamData = await teamResponse.json();
 
-                setUsers(usersData.filter(u => u.id !== user.id));
-                setRequests(requestsData);
-                setTeam(teamData);
-                if (teamData) setNewTeamName(teamData.teamName);
+                setUsers(Array.isArray(usersData) ? usersData.filter(u => (u.id || u._id) !== userId) : []);
+                setRequests(Array.isArray(requestsData) ? requestsData : []);
+                setTeam((teamData && !teamData.error) ? teamData : null);
+                if (teamData && !teamData.error) setNewTeamName(teamData.teamName);
                 setLoading(false);
             } catch (error) {
                 console.error("Error fetching collaboration data:", error);
@@ -56,7 +57,7 @@ const Collaboration = () => {
             const response = await fetch(`${API_URL}/requests`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ senderId: user.id, receiverId })
+                body: JSON.stringify({ senderId: userId, receiverId })
             });
 
             if (response.ok) {
@@ -94,7 +95,7 @@ const Collaboration = () => {
                 setRequests(requests.map(req => req.id === requestId ? { ...req, status } : req));
                 if (status === 'accepted') {
                    // Refresh team if automatically formed
-                   const teamResp = await fetch(`${API_URL}/teams/${user.id}`);
+                   const teamResp = await fetch(`${API_URL}/teams/${userId}`);
                    const teamData = await teamResp.json();
                    setTeam(teamData);
                    if (teamData) setNewTeamName(teamData.teamName);
@@ -108,7 +109,8 @@ const Collaboration = () => {
     };
 
     const getRequestStatusForUser = (otherUserId) => {
-        const req = requests.find(r => r.otherUser.id === otherUserId);
+        if (!Array.isArray(requests)) return null;
+        const req = requests.find(r => r?.otherUser?.id === otherUserId);
         return req ? req : null;
     };
 
@@ -118,7 +120,7 @@ const Collaboration = () => {
             const response = await fetch(`${API_URL}/teams/${team.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ teamName: newTeamName, userId: user.id })
+                body: JSON.stringify({ teamName: newTeamName, userId: userId })
             });
             if (response.ok) {
                 const updated = await response.json();
@@ -134,14 +136,14 @@ const Collaboration = () => {
     };
 
     const handleRemoveMember = async (memberId) => {
-        const isSelf = memberId === user.id;
+        const isSelf = memberId === userId;
         if (!window.confirm(isSelf ? 'Are you sure you want to leave the team?' : 'Remove this member?')) return;
 
         try {
             const res = await fetch(`${API_URL}/teams/${team.id}/remove-member`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ memberId, requesterId: user.id })
+                body: JSON.stringify({ memberId, requesterId: userId })
             });
 
             if (res.ok) {
@@ -164,7 +166,7 @@ const Collaboration = () => {
     const handleDeleteTeam = async () => {
         if (!window.confirm('Are you sure you want to delete this team?')) return;
         try {
-            const res = await fetch(`${API_URL}/teams/${team.id}?requesterId=${user.id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/teams/${team.id}?requesterId=${userId}`, { method: 'DELETE' });
             if (res.ok) {
                 setTeam(null);
                 alert('Team deleted successfully');
@@ -178,8 +180,8 @@ const Collaboration = () => {
     };
 
     // Filtered Lists
-    const pendingIncoming = requests.filter(req => req.type === 'received' && req.status === 'pending');
-    const collaborators = requests.filter(req => req.status === 'accepted');
+    const pendingIncoming = Array.isArray(requests) ? requests.filter(req => req.type === 'received' && req.status === 'pending') : [];
+    const collaborators = Array.isArray(requests) ? requests.filter(req => req.status === 'accepted') : [];
 
     return (
         <>
@@ -210,7 +212,7 @@ const Collaboration = () => {
                     <div style={{ marginBottom: '5rem' }}>
                         <div className="flex justify-between items-center mb-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
                             <div className="text-left w-full">
-                                {editingTeamName && team.leaderId === user.id ? (
+                                {editingTeamName && team.leaderId === userId ? (
                                     <div className="flex items-center gap-4">
                                         <input 
                                             className="form-input" 
@@ -225,12 +227,12 @@ const Collaboration = () => {
                                 ) : (
                                     <div className="flex items-center gap-4">
                                         <h2 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800' }}>{team.teamName}</h2>
-                                        {team.leaderId === user.id && (
+                                        {team.leaderId === userId && (
                                             <button onClick={() => setEditingTeamName(true)} className="btn btn-outline" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
                                                 Edit Name
                                             </button>
                                         )}
-                                        {team.leaderId === user.id && (
+                                        {team.leaderId === userId && (
                                             <button onClick={handleDeleteTeam} className="btn" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', background: '#e11d48', color: 'white' }}>
                                                 Delete Team
                                             </button>
@@ -266,13 +268,13 @@ const Collaboration = () => {
                                     
                                     {/* Remove / Leave Button */}
                                     <div style={{ marginTop: 'auto', width: '100%' }}>
-                                        {team.leaderId === user.id && member.id !== user.id && (
-                                            <button onClick={() => handleRemoveMember(member.id)} className="btn btn-outline w-full" style={{ color: '#e11d48', borderColor: '#e11d48', padding: '0.5rem' }}>
+                                        {team.leaderId === userId && (member.id || member._id) !== userId && (
+                                            <button onClick={() => handleRemoveMember(member.id || member._id)} className="btn btn-outline w-full" style={{ color: '#e11d48', borderColor: '#e11d48', padding: '0.5rem' }}>
                                                 Remove Member
                                             </button>
                                         )}
-                                        {member.id === user.id && team.leaderId !== user.id && (
-                                            <button onClick={() => handleRemoveMember(member.id)} className="btn btn-outline w-full" style={{ color: '#e11d48', borderColor: '#e11d48', padding: '0.5rem' }}>
+                                        {(member.id || member._id) === userId && team.leaderId !== userId && (
+                                            <button onClick={() => handleRemoveMember(member.id || member._id)} className="btn btn-outline w-full" style={{ color: '#e11d48', borderColor: '#e11d48', padding: '0.5rem' }}>
                                                 Leave Team
                                             </button>
                                         )}
@@ -352,7 +354,7 @@ const Collaboration = () => {
                                                         existingRequest.type === 'sent' ? 'Pending' : 'Received'}
                                                 </div>
                                             ) : (
-                                                <button onClick={() => sendRequest(potentialMate.id)} className="btn btn-outline w-full" style={{ padding: '0.5rem' }}>
+                                                <button onClick={() => sendRequest(potentialMate.id || potentialMate._id)} className="btn btn-outline w-full" style={{ padding: '0.5rem' }}>
                                                     Invite
                                                 </button>
                                             )}

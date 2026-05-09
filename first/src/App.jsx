@@ -9,6 +9,7 @@ import ClubEvents from './pages/ClubEvents';
 import EventCalendarPage from './pages/EventCalendarPage';
 import AdminPanel from './pages/AdminPanel';
 import './App.css';
+import PwaInstallButton from './components/PwaInstallButton';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/admin" element={<AdminPanel />} />
         </Routes>
+        <PwaInstallButton />
       </AuthProvider>
     </Router>
   );
