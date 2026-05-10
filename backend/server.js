@@ -9,6 +9,7 @@ import { Event } from './models/Event.js';
 import { Request as CollabRequest } from './models/Request.js';
 import { Registration } from './models/Registration.js';
 import { Team } from './models/Team.js';
+import { Notification } from './models/Notification.js';
 
 dotenv.config();
 
@@ -374,6 +375,19 @@ app.post('/events', async (req, res) => {
     try {
         const newEvent = new Event({ title, date, location, description, image, group });
         await newEvent.save();
+
+        // Notify all users about the new event
+        const users = await User.find();
+        const notifications = users.map(u => ({
+            userId: u._id,
+            message: `A new event "${title}" has been added!`,
+            eventId: newEvent._id,
+            read: false
+        }));
+        if (notifications.length > 0) {
+            await Notification.insertMany(notifications);
+        }
+
         res.status(201).json({
             id: newEvent._id,
             title, date, location, description, image, group
@@ -444,6 +458,41 @@ app.get('/events/:eventId/check-registration/:userId', async (req, res) => {
         res.json({ isRegistered: !!existing });
     } catch (err) {
         res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// --- NOTIFICATION ROUTES ---
+
+// Get notifications for a user
+app.get('/notifications/:userId', async (req, res) => {
+    try {
+        const notifications = await Notification.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(50);
+        res.json(notifications);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+});
+
+// Mark notification as read
+app.put('/notifications/:id/read', async (req, res) => {
+    try {
+        await Notification.findByIdAndUpdate(req.params.id, { read: true });
+        res.json({ message: 'Notification marked as read' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update notification' });
+    }
+});
+
+// Mark all as read for a user
+app.put('/notifications/read-all/:userId', async (req, res) => {
+    try {
+        await Notification.updateMany({ userId: req.params.userId }, { read: true });
+        res.json({ message: 'All notifications marked as read' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update notifications' });
     }
 });
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { API_URL } from "../api";
 
 const NAV_ITEMS = [
   { name: "Home", path: "/" },
@@ -15,12 +16,53 @@ const Navbar = ({ onJoinClick }) => {
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const fetchNotifications = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`${API_URL}/notifications/${user.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const markAsRead = async (id) => {
+    try {
+      await fetch(`${API_URL}/notifications/${id}/read`, { method: "PUT" });
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await fetch(`${API_URL}/notifications/read-all/${user.id}`, { method: "PUT" });
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleLogout = () => {
     logout();
@@ -98,6 +140,34 @@ const Navbar = ({ onJoinClick }) => {
               <div className="user-profile flex items-center gap-2">
                 <div className="avatar">{user.name.charAt(0).toUpperCase()}</div>
                 <span className="user-name hidden sm-block">{user.name}</span>
+              </div>
+              
+              <div className="notification-bell" style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setShowNotifications(!showNotifications)}>
+                <span style={{ fontSize: '1.5rem' }}>🔔</span>
+                {unreadCount > 0 && (
+                  <span style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', borderRadius: '50%', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>
+                    {unreadCount}
+                  </span>
+                )}
+                {showNotifications && (
+                  <div className="notification-dropdown" style={{ position: 'absolute', right: 0, top: '40px', width: '300px', background: '#1e1e2f', border: '1px solid #333', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', zIndex: 1000, overflow: 'hidden' }}>
+                    <div style={{ padding: '10px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Notifications</span>
+                      {unreadCount > 0 && <button style={{ fontSize: '12px', background: 'transparent', color: '#3b82f6', border: 'none', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}>Mark all read</button>}
+                    </div>
+                    <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                      {notifications.length === 0 ? (
+                        <div style={{ padding: '15px', textAlign: 'center', fontSize: '14px', color: '#888' }}>No notifications</div>
+                      ) : (
+                        notifications.map(n => (
+                          <div key={n._id} onClick={(e) => { e.stopPropagation(); markAsRead(n._id); }} style={{ padding: '12px', borderBottom: '1px solid #333', fontSize: '14px', background: n.read ? 'transparent' : '#2a2a40', color: n.read ? '#aaa' : '#fff', cursor: 'pointer' }}>
+                            {n.message}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               {user.isAdmin && onJoinClick ? (
                 <button className="btn btn-primary btn-sm" onClick={onJoinClick}>
